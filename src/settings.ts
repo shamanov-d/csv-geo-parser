@@ -4,7 +4,7 @@ import {existsSync, readFileSync} from "fs";
 //структура настроек
 //описывает в каком столбце что искать
 //номер столбца указываем
-interface Settings {
+export interface Settings {
   latitude: number; //широта
   longitude: number; //долгота
   deduplication: number; //по эьтому столбцу ищем дубли
