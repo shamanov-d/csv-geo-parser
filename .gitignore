@@ -1,0 +1,10 @@
+node_modules/
+dist/
+yarn-error.log
+coverage/
+*.scv
+*.csv
+storage.json
+transpile
+bin
+.husky
