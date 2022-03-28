@@ -1,6 +1,3 @@
-// выборка по координатам
-// Фильтрация по дублям по номеру
-// рзбивние по диапазону
 import {Transform, Stream, TransformCallback} from "stream";
 import {Command} from "commander";
 import {getSource, saveBase, SPLIT_SYMBOL} from "./base";
