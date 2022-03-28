@@ -7,7 +7,7 @@
 ## Как этим пользоваться
 
 Качаем билд под вашу платформу с
-[страницы релиза](https://github.com/shamanov-d/vk-chat-parser/releases).
+[страницы релиза](https://github.com/shamanov-d/csv-geo-parser/releases).
 
 создаем или скачиваем файл `settings.json`. Кладем в папку рядом с билдом.
 
