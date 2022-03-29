@@ -7,8 +7,9 @@ import {existsSync, readFileSync} from "fs";
 export interface Settings {
   latitude: number; //широта
   longitude: number; //долгота
-  deduplication: number; //по эьтому столбцу ищем дубли
+  deduplication: number; //по этому столбцу ищем дубли
   interval: number; //по этому столбцу разбиваем на интервалы
+  outColumn?: number[]; //какие столбцы выводим в итоговый файл
 }
 
 const SETTINGS_NAME = resolve(process.cwd() + "/settings.json");

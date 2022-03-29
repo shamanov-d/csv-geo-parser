@@ -1,7 +1,13 @@
 import {resolve} from "path";
 import {Stream} from "stream";
 import split from "split";
-import {createReadStream, createWriteStream, WriteStream} from "fs";
+import {
+  createReadStream,
+  createWriteStream,
+  WriteStream,
+  existsSync,
+  unlinkSync,
+} from "fs";
 
 export const getSource = (pathBase: string) => {
   if (!pathBase) throw new Error("Source file not props");
@@ -13,13 +19,14 @@ export const getSource = (pathBase: string) => {
 
 const streams: {[k: string]: WriteStream} = {};
 const getSt = (name: string) => {
-  if (!streams[name])
-    return (streams[name] = createWriteStream(
-      resolve(process.cwd() + "/" + name),
-      {
-        flags: "a", //a - добавить строки в конец файла
-      },
-    ));
+  if (!streams[name]) {
+    const path = resolve(process.cwd() + "/" + name);
+    if (existsSync(path)) unlinkSync(path);
+    return (streams[name] = createWriteStream(path, {
+      flags: "a", //a - добавить строки в конец файла
+    }));
+  }
+
   return streams[name];
 };
 

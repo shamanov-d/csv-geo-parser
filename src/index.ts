@@ -11,6 +11,7 @@ interface Options {
   radius?: number;
   interval?: string;
   deduplication?: boolean;
+  filterOutput?: boolean;
 }
 
 // фильтруем поток по координатам
@@ -84,6 +85,22 @@ class SplitInterval extends Transform {
   }
 }
 
+class OutColumnFilter extends Transform {
+  constructor(private column: number[]) {
+    super();
+    this.column = column.sort();
+  }
+  _transform(
+    line: Buffer,
+    encoding: BufferEncoding,
+    callback: TransformCallback,
+  ) {
+    let lineArr = line.toString().split(",");
+    lineArr = lineArr.filter((_, i) => this.column.includes(i));
+    callback(null, lineArr.join(","));
+  }
+}
+
 class Print extends Transform {
   private count = 0;
   _transform(
@@ -105,10 +122,11 @@ cliApp
   .option("-r, --radius [number]", "radius search gps(km)")
   .option("-d, --deduplication ", "deduplication")
   .option("-i, --interval [string]", "1,22,33")
+  .option("-fo, --filterOutput", "filter output csv")
   .action(
     (
       _,
-      {gpsPoint, radius = 10, deduplication, interval}: Options,
+      {gpsPoint, radius = 10, deduplication, interval, filterOutput}: Options,
       cmd: Command,
     ) => {
       return new Promise(res => {
@@ -128,6 +146,15 @@ cliApp
           srcStreamLine = srcStreamLine.pipe(
             new SplitInterval(settings, interval.split(",").map(Number)),
           );
+
+        console.log({filterOutput});
+        if (filterOutput) {
+          if (!settings.outColumn)
+            throw new Error("OutColumn props for settings file not found!");
+          srcStreamLine = srcStreamLine.pipe(
+            new OutColumnFilter(settings.outColumn),
+          );
+        }
 
         saveBase(srcStreamLine);
         srcStreamLine.on("end", () => {
