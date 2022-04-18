@@ -65,9 +65,9 @@ export const saveBase = (st: Stream, maxSize?: number) => {
   st.on("data", data => {
     const [interval, line] = data.toString().split(SPLIT_SYMBOL);
     if (line) {
-      writeFile(`${interval}_out.scv`, line + "\n", maxSize);
+      writeFile(`${interval}_out.csv`, line + "\n", maxSize);
     } else {
-      writeFile(`out.scv`, interval + "\n", maxSize);
+      writeFile(`out.csv`, interval + "\n", maxSize);
     }
   });
 
