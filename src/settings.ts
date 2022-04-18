@@ -8,8 +8,9 @@ export interface Settings {
   latitude: number; //широта
   longitude: number; //долгота
   deduplication: number; //по этому столбцу ищем дубли
-  interval: number; //по этому столбцу разбиваем на интервалы
+  interval: number[]; //по этому столбцу разбиваем на интервалы
   outColumn?: number[]; //какие столбцы выводим в итоговый файл
+  phoneColumn?: number[]; //форматируем под телефонный номер
 }
 
 const SETTINGS_NAME = resolve(process.cwd() + "/settings.json");

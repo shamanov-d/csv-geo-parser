@@ -12,6 +12,8 @@ interface Options {
   interval?: string;
   deduplication?: boolean;
   filterOutput?: boolean;
+  phoneFormat?: boolean;
+  maxFileSize?: number;
 }
 
 // фильтруем поток по координатам
@@ -66,7 +68,7 @@ class SplitInterval extends Transform {
     super();
     interval.unshift(0);
     interval.push(Infinity);
-    this.interval = interval.sort();
+    this.interval = interval.sort((a, b) => a - b);
   }
   _transform(
     line: Buffer,
@@ -74,14 +76,25 @@ class SplitInterval extends Transform {
     callback: TransformCallback,
   ) {
     const lineArr = line.toString().split(",");
-    for (let index = 1; index < this.interval.length; index++) {
-      const current = this.interval[index];
-      const back = this.interval[index - 1];
-      if (current >= Number(lineArr[this.settings.interval])) {
-        callback(null, `${back}-${current}${SPLIT_SYMBOL}${line}`);
-        break;
+    // выбирает столбец ответсвенный за сортировку по цене, если их может быть несколько
+    const num = this.settings.interval.reduce<number>((acc, val) => {
+      if (String(lineArr[val]).includes(".")) return acc;
+      const n = Number(lineArr[val]);
+      if (!isNaN(n)) return n;
+      return acc;
+    }, NaN);
+    if (!isNaN(num))
+      for (let index = 1; index < this.interval.length; index++) {
+        const current = this.interval[index];
+        const back = this.interval[index - 1];
+        if (current >= num) {
+          callback(null, `${back}-${current}${SPLIT_SYMBOL}${line}`);
+          return;
+        }
       }
-    }
+    console.log({lineArr, num});
+    // throw new Error("Interval column is NaN");
+    return callback();
   }
 }
 
@@ -97,6 +110,28 @@ class OutColumnFilter extends Transform {
   ) {
     let lineArr = line.toString().split(",");
     lineArr = lineArr.filter((_, i) => this.column.includes(i));
+    callback(null, lineArr.join(","));
+  }
+}
+
+class PhoneFormatter extends Transform {
+  constructor(private column: number[]) {
+    super();
+    this.column = column.sort();
+  }
+  _transform(
+    line: Buffer,
+    encoding: BufferEncoding,
+    callback: TransformCallback,
+  ) {
+    const lineArr = line.toString().split(",");
+    for (const col of this.column) {
+      lineArr[col] = lineArr[col]
+        .replace("+7", "7")
+        .replace("-", "-")
+        .replace("(", "")
+        .replace(")", "");
+    }
     callback(null, lineArr.join(","));
   }
 }
@@ -123,10 +158,20 @@ cliApp
   .option("-d, --deduplication ", "deduplication")
   .option("-i, --interval [string]", "1,22,33")
   .option("-fo, --filterOutput", "filter output csv")
+  .option("-pf, --phoneFormat", "phone formatter")
+  .option("-mfs, --maxFileSize [number]", "phone formatter mb")
   .action(
     (
       _,
-      {gpsPoint, radius = 10, deduplication, interval, filterOutput}: Options,
+      {
+        gpsPoint,
+        radius = 10,
+        deduplication,
+        interval,
+        filterOutput,
+        phoneFormat,
+        maxFileSize,
+      }: Options,
       cmd: Command,
     ) => {
       return new Promise(res => {
@@ -140,6 +185,15 @@ cliApp
           srcStreamLine = srcStreamLine.pipe(
             new GeoFilter(settings, radius, gpsPoint),
           );
+
+        if (phoneFormat) {
+          if (!settings.phoneColumn)
+            throw new Error("phoneColumn props for settings file not found!");
+          srcStreamLine = srcStreamLine.pipe(
+            new PhoneFormatter(settings.phoneColumn),
+          );
+        }
+
         if (deduplication)
           srcStreamLine = srcStreamLine.pipe(new Deduplication(settings));
         if (interval)
@@ -147,7 +201,6 @@ cliApp
             new SplitInterval(settings, interval.split(",").map(Number)),
           );
 
-        console.log({filterOutput});
         if (filterOutput) {
           if (!settings.outColumn)
             throw new Error("OutColumn props for settings file not found!");
@@ -156,7 +209,8 @@ cliApp
           );
         }
 
-        saveBase(srcStreamLine);
+        if (maxFileSize) maxFileSize = maxFileSize * 1024 * 1024;
+        saveBase(srcStreamLine, maxFileSize);
         srcStreamLine.on("end", () => {
           console.log(
             `\nfilter completed ${(Date.now() - startTime) / 1000} s.`,

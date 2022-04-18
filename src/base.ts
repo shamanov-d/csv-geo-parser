@@ -17,34 +17,61 @@ export const getSource = (pathBase: string) => {
   return fileStream.pipe(split()); //разбили на строки
 };
 
-const streams: {[k: string]: WriteStream} = {};
-const getSt = (name: string) => {
-  if (!streams[name]) {
-    const path = resolve(process.cwd() + "/" + name);
-    if (existsSync(path)) unlinkSync(path);
-    return (streams[name] = createWriteStream(path, {
-      flags: "a", //a - добавить строки в конец файла
-    }));
-  }
+interface StreamContext {
+  stream: WriteStream;
+  counter: number;
+  chunk: number;
+}
 
+const createStream = (name: string) => {
+  const path = resolve(process.cwd() + "/" + name);
+  if (existsSync(path)) unlinkSync(path);
+  return createWriteStream(path, {
+    flags: "a", //a - добавить строки в конец файла
+  });
+};
+
+const streams: {[k: string]: StreamContext} = {};
+const getCtxS = (name: string) => {
+  if (!streams[name]) {
+    return (streams[name] = {
+      stream: createStream(name),
+      counter: 0,
+      chunk: 0,
+    });
+  }
   return streams[name];
+};
+
+const writeFile = (name: string, line: string, maxSize?: number) => {
+  const ctx = getCtxS(name);
+  ctx.stream.write(line);
+  ctx.counter += line.length;
+  if (maxSize) {
+    if (ctx.counter > maxSize) {
+      ctx.chunk++;
+      console.log(`\n${name} - chank: ${ctx.chunk}`);
+      ctx.counter = 0;
+      ctx.stream.destroy();
+      ctx.stream = createStream(`${ctx.chunk}_${name}`);
+      ctx.counter = 0;
+    }
+  }
 };
 
 export const SPLIT_SYMBOL = "ﺦ"; //этого символа в базе точно не будет
 
-export const saveBase = (st: Stream) => {
+export const saveBase = (st: Stream, maxSize?: number) => {
   st.on("data", data => {
     const [interval, line] = data.toString().split(SPLIT_SYMBOL);
     if (line) {
-      const st = getSt(`${interval}_out.scv`);
-      st.write(line);
+      writeFile(`${interval}_out.scv`, line + "\n", maxSize);
     } else {
-      const st = getSt("out.scv");
-      st.write(interval + "\n"); //если нет потока то пишем в основной файл
+      writeFile(`out.scv`, interval + "\n", maxSize);
     }
   });
 
   st.on("end", () => {
-    Object.values(streams).map(st => st.destroy());
+    Object.values(streams).map(({stream}) => stream.destroy());
   });
 };
